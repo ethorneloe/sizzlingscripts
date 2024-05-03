@@ -38,10 +38,11 @@ Describe "Test-IPv4CIDRString Tests" {
 
     It "Throws an exception when IPv4 CIDR notation is without dots" {
         { Test-IPv4CIDRString '192168124/24' } | Should -Throw "IP address must have exactly three dots."
+        { Test-IPv4CIDRString '10.16.24/24' } | Should -Throw "IP address must have exactly three dots."
     }
 
     It "Throws an exception when CIDR notation has extra spaces" {
-        { Test-IPv4CIDRString ' 192.168.1.1 / 24 ' } | Should -Throw "Invalid CIDR format."
+        { Test-IPv4CIDRString ' 192.168.1.1 / 24 ' } | Should -Throw "Spaces are not permitted."
     }
 
     It "Validates with minimum subnet mask" {
@@ -52,6 +53,11 @@ Describe "Test-IPv4CIDRString Tests" {
     It "Validates with maximum subnet mask" {
         { Test-IPv4CIDRString '192.168.1.1/32' } | Should -Not -Throw
         Test-IPv4CIDRString '192.168.1.1/32' | Should -Be $true
+    }
+
+    It "Throws an exception when value is not between 0-255" {
+        { Test-IPv4CIDRString '192.256.1.1/32' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255."
+        { Test-IPv4CIDRString '1003.2.1.1/21' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255."
     }
 
     It "Throws an exception when there are leading zeros except for zero itself" {

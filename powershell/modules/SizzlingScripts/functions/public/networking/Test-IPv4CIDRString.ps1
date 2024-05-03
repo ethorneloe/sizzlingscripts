@@ -3,6 +3,11 @@ function Test-IPv4CIDRString {
         [string]$cidr
     )
 
+    #Make sure there aren't any spaces
+    if ($cidr -match '\s') {
+        throw "Spaces are not permitted."
+    }
+
     # Split the string by '/' to separate the IP address from the subnet mask
     $parts = $cidr -split '/'
     if ($parts.Count -ne 2) {
