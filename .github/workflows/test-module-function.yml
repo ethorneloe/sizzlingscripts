@@ -1,0 +1,29 @@
+name: Test Powers Module Function
+
+on:
+  workflow_dispatch:
+    inputs:
+      moduleName:
+        description: "PowerShell module name"
+        required: true
+      testName:
+        description: "Function name"
+        required: true
+
+jobs:
+  test:
+    name: Run Pester Tests on PowerShell Script
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Pester
+        run: pwsh -Command 'Install-Module -Name Pester -Force -SkipPublisherCheck -Scope CurrentUser'
+
+      - name: Import Module
+        run: pwsh -Command 'Import-Module ./${{ github.event.inputs.moduleName }}.ps1 -Force'
+
+      - name: Run Pester Tests
+        run: pwsh -Command 'Invoke-Pester ./${{ github.event.inputs.testName }}.ps1 -Output Detailed'
