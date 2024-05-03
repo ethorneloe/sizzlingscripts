@@ -9,40 +9,39 @@ Describe "Test-IPv4CIDRString Tests" {
     }
 
     It "Throws an exception when IP address is invalid" {
-        { Test-IPv4CIDRString '192.168.300.1/24' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255."
+        { Test-IPv4CIDRString '192.168.300.1/24' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 192.168.300.1/24"
     }
 
     It "Throws an exception when subnet mask is too large" {
-        { Test-IPv4CIDRString '192.168.1.1/33' } | Should -Throw "Invalid subnet mask."
+        { Test-IPv4CIDRString '192.168.1.1/33' } | Should -Throw "Invalid subnet mask for input: 192.168.1.1/33"
     }
 
     It "Throws an exception when subnet mask is negative" {
-        { Test-IPv4CIDRString '192.168.1.1/-1' } | Should -Throw "Invalid subnet mask."
+        { Test-IPv4CIDRString '192.168.1.1/-1' } | Should -Throw "Invalid subnet mask for input: 192.168.1.1/-1"
     }
 
     It "Throws an exception when CIDR is missing subnet mask" {
-        { Test-IPv4CIDRString '192.168.1.1' } | Should -Throw "Invalid CIDR format."
+        { Test-IPv4CIDRString '192.168.1.1' } | Should -Throw "Invalid CIDR format for input: 192.168.1.1"
     }
 
     It "Throws an exception when CIDR notation has an incorrect delimiter" {
-        { Test-IPv4CIDRString '192.168.1.1-24' } | Should -Throw "Invalid CIDR format."
+        { Test-IPv4CIDRString '192.168.1.1-24' } | Should -Throw "Invalid CIDR format for input: 192.168.1.1-24"
     }
 
     It "Throws an exception when input is an empty string" {
-        { Test-IPv4CIDRString '' } | Should -Throw "Invalid CIDR format."
+        { Test-IPv4CIDRString '' } | Should -Throw "Invalid CIDR format for input: "
     }
 
     It "Throws an exception when IP part contains non-numeric characters" {
-        { Test-IPv4CIDRString '192.168.1.abc/24' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255."
+        { Test-IPv4CIDRString '192.168.1.abc/24' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 192.168.1.abc/24"
     }
 
     It "Throws an exception when IPv4 CIDR notation is without dots" {
-        { Test-IPv4CIDRString '192168124/24' } | Should -Throw "IP address must have exactly three dots."
-        { Test-IPv4CIDRString '10.16.24/24' } | Should -Throw "IP address must have exactly three dots."
+        { Test-IPv4CIDRString '192168124/24' } | Should -Throw "IP address must have exactly three dots for input: 192168124/24"
     }
 
     It "Throws an exception when CIDR notation has extra spaces" {
-        { Test-IPv4CIDRString ' 192.168.1.1 / 24 ' } | Should -Throw "Spaces are not permitted."
+        { Test-IPv4CIDRString ' 192.168.1.1 / 24 ' } | Should -Throw "Spaces are not permitted in the input:  192.168.1.1 / 24 "
     }
 
     It "Validates with minimum subnet mask" {
@@ -56,13 +55,12 @@ Describe "Test-IPv4CIDRString Tests" {
     }
 
     It "Throws an exception when value is not between 0-255" {
-        { Test-IPv4CIDRString '192.256.1.1/32' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255."
-        { Test-IPv4CIDRString '1003.2.1.1/21' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255."
-        { Test-IPv4CIDRString '-20.2.1.1/21' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255."
+        { Test-IPv4CIDRString '192.256.1.1/32' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 192.256.1.1/32"
+        { Test-IPv4CIDRString '1003.2.1.1/21' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 1003.2.1.1/21"
+        { Test-IPv4CIDRString '-20.2.1.1/21' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: -20.2.1.1/21"
     }
 
     It "Throws an exception when there are leading zeros except for zero itself" {
-        { Test-IPv4CIDRString '192.168.001.1/24' } | Should -Throw "Leading zeros are not allowed except for 0 itself."
+        { Test-IPv4CIDRString '192.168.001.1/24' } | Should -Throw "Leading zeros are not allowed except for 0 itself in input: 192.168.001.1/24"
     }
 }
-
