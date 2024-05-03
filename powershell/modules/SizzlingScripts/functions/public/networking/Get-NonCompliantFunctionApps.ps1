@@ -22,6 +22,7 @@
 .NOTES
     Dependencies:
         1. Test-IPv4CIDRString function in this module.
+        2. Az CLI installed on execution platform.
 #>
 
 function Get-NonCompliantFunctionApps {
