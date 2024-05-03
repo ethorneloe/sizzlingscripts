@@ -30,9 +30,9 @@ function Test-IPv4CIDRString {
             throw "IP address must have exactly three dots for input: $cidr"
         }
 
-        # Check for leading zeros and segment out of range
+        # Check for leading zeros, spaces, empty string and segment out of range
         foreach ($part in $ipParts) {
-            if (-not ($part -as [int] -is [int]) -or [int]$part -lt 0 -or [int]$part -gt 255) {
+            if (-not ($part -as [int] -is [int]) -or [int]$part -lt 0 -or [int]$part -gt 255 -or [string]::IsNullOrEmpty($part) -or $part -match '\s') {
                 throw "Each segment of the IP address must be a number between 0 and 255 for input: $cidr"
             }
             if ($part -ne '0' -and $part.StartsWith('0')) {
