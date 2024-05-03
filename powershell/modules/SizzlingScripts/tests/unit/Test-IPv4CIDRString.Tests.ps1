@@ -29,7 +29,7 @@ Describe "Test-IPv4CIDRString Tests" {
     }
 
     It "Throws an exception when input is an empty string" {
-        { Test-IPv4CIDRString '' } | Should -Throw "Invalid CIDR format for input: "
+        { Test-IPv4CIDRString '' } | Should -Throw "Test-IPv4CIDRString: Cannot validate argument on parameter 'cidr'. The argument is null or empty. Provide an argument that is not null or empty, and then try the command again."
     }
 
     It "Throws an exception when IP part contains non-numeric characters" {
