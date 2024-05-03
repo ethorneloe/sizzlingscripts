@@ -9,7 +9,7 @@ Describe "Test-IPv4CIDRString Tests" {
     }
 
     It "Throws an exception when IP address is invalid" {
-        { Test-IPv4CIDRString '192.168.300.1/24' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255, and not contain spaces for input: 192.168.300.1/24"
+        { Test-IPv4CIDRString '192.168.300.1/24' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 192.168.300.1/24"
     }
 
     It "Throws an exception when subnet mask is too large" {
@@ -33,11 +33,10 @@ Describe "Test-IPv4CIDRString Tests" {
     }
 
     It "Throws an exception when IP part contains non-numeric characters" {
-        { Test-IPv4CIDRString '192.168.1.abc/24' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255, and not contain spaces for input: 192.168.1.abc/24"
-        { Test-IPv4CIDRString '192.168.1./24' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255, and not contain spaces for input: 192.168.1./24"
-        { Test-IPv4CIDRString '11.1..0/16' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255, and not contain spaces for input: 11.1..0/16"
-        { Test-IPv4CIDRString '172. .100.0/16' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255, and not contain spaces for input: 172. .100.0/16"
-        { Test-IPv4CIDRString '172. 20.100.0/16' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255, and not contain spaces for input: 172. 20.100.0/16"
+        { Test-IPv4CIDRString '192.168.1.abc/24' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 192.168.1.abc/24"
+        { Test-IPv4CIDRString '192.168.1./24' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 192.168.1./24"
+        { Test-IPv4CIDRString '11.1..0/16' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 11.1..0/16"
+        { Test-IPv4CIDRString '11.1.1./16' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 11.1..0/16"
     }
 
     It "Throws an exception when IPv4 CIDR notation is without dots" {
@@ -46,6 +45,8 @@ Describe "Test-IPv4CIDRString Tests" {
 
     It "Throws an exception when CIDR notation has extra spaces" {
         { Test-IPv4CIDRString ' 192.168.1.1 / 24 ' } | Should -Throw "Spaces are not permitted in the input:  192.168.1.1 / 24 "
+        { Test-IPv4CIDRString '172. .100.0/16' } | Should -Throw "Spaces are not permitted in the input: 172. .100.0/16"
+        { Test-IPv4CIDRString '172. 20.100.0/16' } | Should -Throw "Spaces are not permitted in the input: 172. 20.100.0/16"
     }
 
     It "Validates with minimum subnet mask" {
@@ -59,9 +60,9 @@ Describe "Test-IPv4CIDRString Tests" {
     }
 
     It "Throws an exception when value is not between 0-255" {
-        { Test-IPv4CIDRString '192.256.1.1/32' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255, and not contain spaces for input: 192.256.1.1/32"
-        { Test-IPv4CIDRString '1003.2.1.1/21' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255, and not contain spaces for input: 1003.2.1.1/21"
-        { Test-IPv4CIDRString '-20.2.1.1/21' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255, and not contain spaces for input: -20.2.1.1/21"
+        { Test-IPv4CIDRString '192.256.1.1/32' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 192.256.1.1/32"
+        { Test-IPv4CIDRString '1003.2.1.1/21' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 1003.2.1.1/21"
+        { Test-IPv4CIDRString '-20.2.1.1/21' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: -20.2.1.1/21"
     }
 
     It "Throws an exception when there are leading zeros except for zero itself" {
