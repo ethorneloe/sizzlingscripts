@@ -1,4 +1,4 @@
-name: Test Powers Module Function
+name: Test PowerShell Module Function
 
 on:
   workflow_dispatch:
