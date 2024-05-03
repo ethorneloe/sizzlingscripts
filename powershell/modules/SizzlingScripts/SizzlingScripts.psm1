@@ -4,13 +4,13 @@
 # Import-Module -Name 'DependencyModule2' -MinimumVersion '3.1.0'
 
 # Load private functions
-$privateFunctions = Get-ChildItem -Path (Join-Path -Path $PSScriptRoot -ChildPath 'Functions/Private') -Filter *.ps1 -Recurse
+$privateFunctions = Get-ChildItem -Path (Join-Path -Path $PSScriptRoot -ChildPath 'functions/private') -Filter *.ps1 -Recurse
 foreach ($privateFunction in $privateFunctions) {
     . $privateFunction.FullName
 }
 
 # Load public functions
-$publicFunctions = Get-ChildItem -Path (Join-Path -Path $PSScriptRoot -ChildPath 'Functions/Public') -Filter *.ps1 -Recurse
+$publicFunctions = Get-ChildItem -Path (Join-Path -Path $PSScriptRoot -ChildPath 'functions/public') -Filter *.ps1 -Recurse
 foreach ($publicFunction in $publicFunctions) {
     . $publicFunction.FullName
 }
