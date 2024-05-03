@@ -1,5 +1,9 @@
 Describe "Test-IPv4CIDRString Tests" {
 
+    BeforeAll {
+        Import-Module ./powershell/modules/SizzlingScripts -Force
+    }
+
     It "Validates standard correct IPv4 CIDR notation" {
         Test-IPv4CIDRString '192.168.1.1/24' | Should -Be $true
     }
