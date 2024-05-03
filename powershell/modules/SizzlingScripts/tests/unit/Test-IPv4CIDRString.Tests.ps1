@@ -36,7 +36,7 @@ Describe "Test-IPv4CIDRString Tests" {
         { Test-IPv4CIDRString '192.168.1.abc/24' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 192.168.1.abc/24"
         { Test-IPv4CIDRString '192.168.1./24' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 192.168.1./24"
         { Test-IPv4CIDRString '11.1..0/16' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 11.1..0/16"
-        { Test-IPv4CIDRString '11.1.1./16' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 11.1..0/16"
+        { Test-IPv4CIDRString '11.1.1./16' } | Should -Throw "Each segment of the IP address must be a number between 0 and 255 for input: 11.1.1./16"
     }
 
     It "Throws an exception when IPv4 CIDR notation is without dots" {
