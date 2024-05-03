@@ -23,4 +23,4 @@ jobs:
         run: pwsh -Command 'Import-Module ./powershell/modules/${{ github.event.inputs.moduleName }} -Force'
 
       - name: Run Pester Unit Tests
-        run: pwsh -Command 'Invoke-Pester ./powershell/tests/unit/${{ github.event.inputs.testName }}.Tests.ps1 -Output Detailed'
+        run: pwsh -Command 'Invoke-Pester ./powershell/modules/${{ github.event.inputs.moduleName }}/tests/unit/${{ github.event.inputs.testName }}.Tests.ps1 -Output Detailed'
