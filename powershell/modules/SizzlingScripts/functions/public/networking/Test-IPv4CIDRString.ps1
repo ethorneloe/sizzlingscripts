@@ -26,8 +26,8 @@ function Test-IPv4CIDRString {
         throw "IP address must have exactly three dots."
     }
 
+    # Check for leading zeros and segment out of range
     foreach ($part in $ipParts) {
-        $part
         if (-not ($part -as [int] -is [int]) -or [int]$part -lt 0 -or [int]$part -gt 255) {
             throw "Each segment of the IP address must be a number between 0 and 255."
         }
