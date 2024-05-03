@@ -56,7 +56,7 @@ function Get-NonCompliantFunctionApps {
             # Retrieve the function app configuration
             $functionAppConfig = az functionapp config show --resource-group $functionApp.resourceGroup --name $functionApp.name | ConvertFrom-Json
 
-            #if the properties are null non-compliant and continue to next
+            # If any of the settings in question are null, add the current function to the non-compliant list and continue to the next one.
             if ($null -eq $functionAppConfig.publicNetworkAccess `
                     -or $null -eq $functionAppConfig.ipSecurityRestrictionsDefaultAction `
                     -or $null -eq $functionAppConfig.scmIpSecurityRestrictionsDefaultAction `
