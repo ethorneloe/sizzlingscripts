@@ -1,3 +1,25 @@
+<#
+.SYNOPSIS
+    Tests if a given string is a valid IPv4 CIDR notation.
+
+.DESCRIPTION
+    This function validates an IPv4 CIDR string to ensure it is in the correct format and range.
+    The CIDR input must not contain spaces, must have a valid IPv4 address, and a subnet mask
+    that ranges from 0 to 32. The function throws exceptions with specific error messages for
+    various types of invalid input.
+
+.EXAMPLE
+    Test-IPv4CIDRString -cidr "192.168.1.1/24"
+    Returns $true because "192.168.1.1/24" is a valid IPv4 CIDR notation.
+
+.EXAMPLE
+    Test-IPv4CIDRString -cidr "192.168.1.1/33"
+    Throws an error because the subnet mask 33 is out of the allowed range (0-32).
+
+.PARAMETER cidr
+    The IPv4 CIDR string that needs to be validated. The string format should be IP address followed by a slash and a subnet mask.
+#>
+
 function Test-IPv4CIDRString {
     [CmdletBinding()]
     param(
