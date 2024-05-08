@@ -1,6 +1,6 @@
 # GitHub Actions Workflow for emailing a report of failed Azure Automation Jobs.
 # Runs on self-hosted runners in dev, test, and prod environments
-name: Send Failed Jobs Notification
+name: Send Metrics to Splunk
 
 # Triggering conditions for the workflow
 on:
