@@ -1,0 +1,54 @@
+# GitHub Actions Workflow for emailing a report of failed Azure Automation Jobs.
+# Runs on self-hosted runners in dev, test, and prod environments
+name: Send Failed Jobs Notification
+
+# Triggering conditions for the workflow
+on:
+  # Manual trigger with an input to specify the environment
+  workflow_dispatch:
+
+  # Scheduled trigger: Every 15 minutes
+  schedule:
+    - cron: "*/15 * * * *"
+
+# Permissions for using OIDC for connecting to Azure
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  send-to-splunk:
+    runs-on: ubuntu latest
+    steps:
+      # Step to checkout the code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "Az CLI login"
+        # Put this back if Azure login for Modules becomes required again.
+        # if: needs.get_changed_modules_and_runbooks.outputs.changed_modules != '-1' || needs.get_changed_modules_and_runbooks.outputs.changed_runbooks != '-1'
+        if: needs.get_changed_modules_and_runbooks.outputs.changed_runbooks != '-1'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_APP_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          enable-AzPSSession: true
+
+      - name: Execute Function
+        id: execute_function
+        uses: azure/powershell@v2
+        with:
+          azPSVersion: "latest"
+          inlineScript: |
+            Import-Module SizzlingScripts -Force
+
+            $AgriPureParams = '${{secrets.SEND_TO_SPLUNK_AGRIPURE_PARAMS}}'  | ConvertFrom-Json
+            $SproutSphereParams = '${{secrets.SEND_TO_SPLUNK_SPROUTSPHERE_PARAMS}}'  | ConvertFrom-Json
+            $VitalRootsParams = '${{secrets.SEND_TO_SPLUNK_VITALROOTS_PARAMS}}'  | ConvertFrom-Json
+
+            Send-GitHubOrgMetricsToSplunk $AgriPureParams
+            Send-GitHubOrgMetricsToSplunk $SproutSphereParams
+            Send-GitHubOrgMetricsToSplunk $VitalRootsParams
