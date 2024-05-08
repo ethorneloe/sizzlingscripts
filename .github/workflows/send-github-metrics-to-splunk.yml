@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   send-to-splunk:
-    runs-on: ubuntu latest
+    runs-on: ubuntu-latest
     steps:
       # Step to checkout the code
       - name: Checkout repository
