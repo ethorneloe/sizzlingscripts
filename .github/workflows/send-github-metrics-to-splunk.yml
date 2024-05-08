@@ -41,7 +41,7 @@ jobs:
         with:
           azPSVersion: "latest"
           inlineScript: |
-            Import-Module SizzlingScripts -Force
+            Import-Module ./powershell/modules/SizzlingScripts -Force
 
             $AgriPureParams = '${{secrets.SEND_TO_SPLUNK_AGRIPURE_PARAMS}}'  | ConvertFrom-Json
             $SproutSphereParams = '${{secrets.SEND_TO_SPLUNK_SPROUTSPHERE_PARAMS}}'  | ConvertFrom-Json
