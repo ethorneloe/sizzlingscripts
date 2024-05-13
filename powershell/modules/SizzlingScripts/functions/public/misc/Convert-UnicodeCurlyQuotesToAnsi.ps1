@@ -12,7 +12,7 @@ PS> Convert-UnicodeCurlyQuotesToAnsi -InputData "‘Hello, World!’"
 This example converts Unicode curly single quotes in the input string to ANSI single quotes.
 
 .EXAMPLE
-PS> Convert-UnicodeCurlyQuotesToAnsi -InputData @("‘Example’", "“Test”")
+PS> Convert-UnicodeCurlyQuotesToAnsi -InputData @("‘Example’", "`“Test`”")
 @("'Example'", '"Test"')
 
 This example shows how the function can process an array of strings, replacing both types of curly quotes with their ANSI equivalents.
