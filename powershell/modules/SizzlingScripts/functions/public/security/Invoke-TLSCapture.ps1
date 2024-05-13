@@ -30,16 +30,25 @@ Function Invoke-TLSCapture {
     $tsharkPath = "C:\Program Files\Wireshark\tshark.exe"
 
     $tsharkArgs = "-i $InterfaceName " +
-    "-Y `"tls.handshake.type == 1 || tls.handshake.type == 2`" " +
+    "-Y `"tls.handshake.type == 1 || tls.handshake.type == 2 || dns.flags.opcode == 0`" " +
     "-T fields " +
+    "-e frame.time " +
+    "-e frame.protocols " +
     "-e ip.src " +
     "-e ip.dst " +
     "-e tls.handshake.type " +
+    "-e tls.record.version " +
     "-e tls.handshake.version " +
     "-e tls.handshake.ciphersuite " +
     "-e tls.handshake.extensions.supported_version " +
     "-e tls.handshake.sig_hash_alg " +
     "-e tls.handshake.extensions_server_name " +
+    "-e dns.flags.response " +
+    "-e dns.qry.name " +
+    "-e dns.resp.name " +
+    "-e dns.resp.type " +
+    "-e dns.cname " +
+    "-e dns.a " +
     "-E separator=`"|`" " +
     "-E occurrence=a " +
     "-a duration:$($maxCaptureTime)"
@@ -65,15 +74,36 @@ Function Invoke-TLSCapture {
         $results = Get-Content $outputFile | ForEach-Object {
             if ($_ -notmatch "\|") { continue }
             $fields = $_ -split '\|'
-            [PSCustomObject]@{
-                SourceIP                = $fields[0]
-                DestinationIP           = $fields[1]
-                HandshakeType           = ($fields[2] -split ',').trim() | Convert-TLSContentTypeFromDecimal
-                TLSVersion              = ($fields[3] -split ',').trim() | Convert-TLSVersionFromHex
-                CipherSuites            = ($fields[4] -split ',').trim() | Convert-CipherSuiteFromHex
-                SupportedTLSVersions    = ($fields[5] -split ',').trim() | Convert-TLSVersionFromHex
-                SignatureHashAlgorithms = ($fields[6] -split ',').trim() | Convert-SigHashAlgoFromHex
-                ServerName              = $fields[7]
+            $protocols = $fields[1].split(':')
+
+            if ('tls' -in $protocols) {
+                [PSCustomObject]@{
+                    Timestamp               = $fields[0]
+                    Protocol                = $fields[1]
+                    SourceIP                = $fields[2]
+                    DestinationIP           = $fields[3]
+                    HandshakeType           = ($fields[4] -split ',').trim() | Convert-TLSContentTypeFromDecimal
+                    RecordVersion           = ($fields[5] -split ',').trim() | Convert-TLSContentTypeFromDecimal
+                    HandShakeVersion        = ($fields[5] -split ',').trim() | Convert-TLSVersionFromHex
+                    CipherSuites            = ($fields[6] -split ',').trim() | Convert-CipherSuiteFromHex
+                    SupportedVersions       = ($fields[7] -split ',').trim() | Convert-TLSVersionFromHex
+                    SignatureHashAlgorithms = ($fields[8] -split ',').trim() | Convert-SigHashAlgoFromHex
+                    ServerName              = $fields[9]
+                }
+            }
+            elseif ('dns' -in $protocols) {
+                [PSCustomObject]@{
+                    Timestamp          = $fields[0]
+                    Protocol           = $fields[1]
+                    SourceIP           = $fields[2]
+                    DestinationIP      = $fields[3]
+                    DNSResponseFlag    = $fields[11]
+                    DNSQueryName       = $fields[12]
+                    DNSResponseName    = $fields[13] -split ','
+                    DNSResponseType    = $fields[14] -split ',' | ForEach-Object { @{ "1" = "A"; "5" = "CNAME" }[$_] }
+                    DNSResponseCname   = $fields[15] -split ','
+                    DNSResponseAddress = $fields[16] -split ','
+                }
             }
         }
 
@@ -89,3 +119,11 @@ Function Invoke-TLSCapture {
 
     return $results
 }
+
+
+
+
+#dns.resp.name == "ipv4-eau-oi-ods-cses-b.australiaeast.cloudapp.azure.com"
+#dns.flags.response == 0 is a client query
+#dns.flags.response == 1 is a client response
+#
