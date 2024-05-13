@@ -22,6 +22,12 @@
     # Call Invoke-TLSCapture with the script block
     $results = Invoke-TLSCapture -InterfaceName "Ethernet0" -ScriptBLock $captureActions
 
+    $results.ClientHellos | Select-Object CipherSuites
+    $results.ServerHellos | Where-Object {$_.SupportedVersions -match '1.3'}
+    $results.DNSResponses | Where-Object {$_.DNSResponseType -contains 'CNAME'}
+    $results.DNSQueries
+    $results.TCPResets
+
 .NOTES
     If you want the trace to continue through all parts of the scriptblock then each part will need its own try catch.
 
@@ -224,11 +230,11 @@ Function Invoke-TLSCapture {
     }
 
     $results = [PSCustomObject]@{
-        dnsqueries   = $DNSQueries
-        dnsesponses  = $DNSResponses
-        clienthellos = $ClientHellos
-        serverhellos = $ServerHellos
-        tcpresets    = $TCPResets
+        DNSQueries   = $DNSQueries
+        DNSResponses = $DNSResponses
+        ClientHellos = $ClientHellos
+        ServerHellos = $ServerHellos
+        TCPResets    = $TCPResets
     }
 
     return $results
