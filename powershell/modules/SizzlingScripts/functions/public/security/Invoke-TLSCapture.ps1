@@ -14,21 +14,17 @@
 
 .EXAMPLE
     $captureActions = {
-        try {
-            Invoke-WebRequest "https://github.com" -ErrorAction Stop | Out-Null
-            Invoke-WebRequest "https://azure.microsoft.com" -ErrorAction Stop | Out-Null
-            Invoke-WebRequest "https://google.com" -ErrorAction Stop | Out-Null
-        }
-        catch {
-            Write-Error "An error occurred: $_"
-        }
+        Invoke-WebRequest "https://github.com" | Out-Null
+        Invoke-WebRequest "https://azure.microsoft.com" | Out-Null
+        Invoke-WebRequest "https://google.com" | Out-Null
     }
 
     # Call Invoke-TLSCapture with the script block
     $results = Invoke-TLSCapture -InterfaceName "Ethernet0" -ScriptBLock $captureActions
 
 .NOTES
-    Make sure to include a try catch block in the script block, as this will ensure the function continues and parses the output.
+    If you want the trace to continue through all parts of the scriptblock then each part will need its own try catch.
+
 #>
 Function Invoke-TLSCapture {
     param (
@@ -228,11 +224,11 @@ Function Invoke-TLSCapture {
     }
 
     $results = [PSCustomObject]@{
-        DNSQueries   = $DNSQueries
-        DNSResponses = $DNSResponses
-        ClientHellos = $ClientHellos
-        ServerHellos = $ServerHellos
-        TCPResets    = $TCPResets
+        dnsqueries   = $DNSQueries
+        dnsesponses  = $DNSResponses
+        clienthellos = $ClientHellos
+        serverhellos = $ServerHellos
+        tcpresets    = $TCPResets
     }
 
     return $results
