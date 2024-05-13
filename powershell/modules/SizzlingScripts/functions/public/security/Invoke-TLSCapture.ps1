@@ -12,15 +12,20 @@
 .PARAMETER ScriptBlock
     The code you want to run while tshark is capturing.
 
+.PARAMETER FlushDNS
+    Add this switch to flush the dns cache at each run, which will ensure the IP lookup table is built properly each time, and output objects have names added.
+
 .EXAMPLE
     $captureActions = {
+
+        # Do this to ensure the IP lookup table is built each time in the function
         Invoke-WebRequest "https://github.com" | Out-Null
         Invoke-WebRequest "https://azure.microsoft.com" | Out-Null
         Invoke-WebRequest "https://google.com" | Out-Null
     }
 
     # Call Invoke-TLSCapture with the script block
-    $results = Invoke-TLSCapture -InterfaceName "Ethernet0" -ScriptBLock $captureActions
+    $results = Invoke-TLSCapture -InterfaceName "Ethernet0" -ScriptBLock $captureActions -Ful
 
     $results.ClientHellos | Select-Object CipherSuites
     $results.ServerHellos | Where-Object {$_.SupportedVersions -match '1.3'}
@@ -29,7 +34,11 @@
     $results.TCPResets
 
 .NOTES
+
     If you want the trace to continue through all parts of the scriptblock then each part will need its own try catch.
+
+    In order for the IP lookup table to get built in the function, which is used to populate the server names in the output objects, consider
+    running ipconfig /flushdns in your capture actions script block (as above).
 
 #>
 Function Invoke-TLSCapture {
@@ -39,8 +48,15 @@ Function Invoke-TLSCapture {
         [scriptblock]$ScriptBlock,
 
         [Parameter(Mandatory = $true)]
-        [string]$InterfaceName
+        [string]$InterfaceName,
+
+        [Parameter()]
+        [switch]$FlushDNS
     )
+
+    if ($FlushDNS) {
+        ipconfig /flushdns
+    }
 
     # Configure tshark params
     $outputFile = New-TemporaryFile
@@ -174,7 +190,7 @@ Function Invoke-TLSCapture {
                     # If there are IPs in the response, add to the mapping using the DNS query name
                     $DNSResponseAddresses = $fields[16] -split ','
                     $DNSResponseAddresses | ForEach-Object {
-                        $IPNameMap[$_.trim()] = $fields[12]
+                        $IPNameMap[$_] = $fields[12]
                     }
 
                     $obj = [PSCustomObject]@{
@@ -221,13 +237,15 @@ Function Invoke-TLSCapture {
 
     # Perform a lookup on the IPs in the Server Hellos and add the ServerName
     $ServerHellos | ForEach-Object {
-        $_.ServerName = $IPNameMap[$_.SourceIP.trim()]
+        $_.ServerName = $IPNameMap[$_.SourceIP]
     }
 
     # Same thing for the TCP Resets. Assumes the reset comes from the IP that was contained in a DNS Response.
     $TCPResets | ForEach-Object {
-        $_.ServerName = $IPNameMap[$_.SourceIP.trim()]
+        $_.ServerName = $IPNameMap[$_.SourceIP]
     }
+
+    $IPNameMap
 
     $results = [PSCustomObject]@{
         DNSQueries   = $DNSQueries
