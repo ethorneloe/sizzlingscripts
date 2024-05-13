@@ -174,7 +174,7 @@ Function Invoke-TLSCapture {
                     # If there are IPs in the response, add to the mapping using the DNS query name
                     $DNSResponseAddresses = $fields[16] -split ','
                     $DNSResponseAddresses | ForEach-Object {
-                        $IPNameMap[$_.trim()] = $obj.DNSQueryName
+                        $IPNameMap[$_.trim()] = $fields[12]
                     }
 
                     $obj = [PSCustomObject]@{
