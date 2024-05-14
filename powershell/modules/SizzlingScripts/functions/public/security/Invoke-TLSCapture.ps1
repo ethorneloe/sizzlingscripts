@@ -60,7 +60,10 @@ Function Invoke-TLSCapture {
     )
 
     if ($FlushDNS) {
-        ipconfig /flushdns
+        $commandOutput = ipconfig /flushdns
+        if ($commandOutput -match "elevation") {
+            throw "Run this function again with elevation to ensure ipconfig /flushdns succeeds."
+        }
     }
 
     # Configure tshark params
