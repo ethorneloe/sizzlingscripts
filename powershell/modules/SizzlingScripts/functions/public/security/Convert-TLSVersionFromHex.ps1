@@ -21,7 +21,7 @@ The function provides a mapping for commonly used TLS versions and reserved code
 function Convert-TLSVersionFromHex {
 
     [CmdletBinding()]
-    [OutputType([string])]
+    [OutputType([System.String])]
     param (
         [Parameter(ValueFromPipeline = $true)]
         [string]$HexCode
