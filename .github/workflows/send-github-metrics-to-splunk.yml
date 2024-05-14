@@ -48,5 +48,5 @@ jobs:
             $VitalRootsParams = '${{secrets.SEND_TO_SPLUNK_VITALROOTS_PARAMS}}'  | ConvertFrom-Json -AsHashtable
 
             Send-GitHubOrgMetricsToSplunk @AgriPureParams
-            #Send-GitHubOrgMetricsToSplunk @SproutSphereParams
-            #Send-GitHubOrgMetricsToSplunk @VitalRootsParams
+            Send-GitHubOrgMetricsToSplunk @SproutSphereParams
+            Send-GitHubOrgMetricsToSplunk @VitalRootsParams
