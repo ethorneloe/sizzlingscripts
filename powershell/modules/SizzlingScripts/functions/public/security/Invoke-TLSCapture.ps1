@@ -44,7 +44,11 @@
     $results.TCPResets
 
 .NOTES
-
+  This function depends on the following supporting functions in this module:
+    1. Convert-CipherSuiteFromHex
+    2. Convert-SigHashAlgoFromHex
+    3. Convert-TLSContentTypeFromHex
+    4. Convert-TLSVersionFromHex
 #>
 Function Invoke-TLSCapture {
     param (
