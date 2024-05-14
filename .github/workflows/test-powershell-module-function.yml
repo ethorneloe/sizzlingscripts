@@ -21,5 +21,15 @@ jobs:
 
       - name: Run Pester Unit Tests
         run: |
-          Invoke-Pester './powershell/modules/${{ github.event.inputs.moduleName }}/tests/unit/${{ github.event.inputs.testName }}.Tests.ps1' -Output Detailed
+          $unitTestFile = './powershell/modules/${{ github.event.inputs.moduleName }}/tests/unit/${{ github.event.inputs.testName }}.Tests.ps1'
+          $integrationTestFile = './powershell/modules/${{ github.event.inputs.moduleName }}/tests/integration/${{ github.event.inputs.testName }}.Tests.ps1'
+
+          if($unitTestFile) {
+            Invoke-Pester $unitTestFile -Output Detailed
+          }
+
+          if($integrationTestFile) {
+            Invoke-Pester $integrationTestFile -Output Detailed
+          }
+          
         shell: pwsh
