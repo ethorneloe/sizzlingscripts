@@ -18,10 +18,20 @@
 .EXAMPLE
     $captureActions = {
 
-        # Do this to ensure the IP lookup table is built each time in the function
-        Invoke-WebRequest "https://github.com" | Out-Null
-        Invoke-WebRequest "https://azure.microsoft.com" | Out-Null
-        Invoke-WebRequest "https://google.com" | Out-Null
+        $urls = @(
+            "https://github.com",
+            "https://azure.microsoft.com",
+            "https://google.com"
+        )
+
+        $urls | ForEach-Object {
+            try {
+                Invoke-WebRequest $_  | Out-Null
+            }
+            catch {
+                Write-Error "An error occured - capture actions - $_"
+            }
+        }
     }
 
     # Call Invoke-TLSCapture with the script block
@@ -34,11 +44,6 @@
     $results.TCPResets
 
 .NOTES
-
-    If you want the trace to continue through all parts of the scriptblock then each part will need its own try catch.
-
-    In order for the IP lookup table to get built in the function, which is used to populate the server names in the output objects, consider
-    running ipconfig /flushdns in your capture actions script block (as above).
 
 #>
 Function Invoke-TLSCapture {
@@ -86,7 +91,8 @@ Function Invoke-TLSCapture {
     "-e tcp.flags.reset " +
     "-E separator=`"|`" " +
     "-E occurrence=a " +
-    "-a duration:$($maxCaptureTime)"
+    "-a duration:$($maxCaptureTime) " +
+    "-l" # This flushes std out which ensures the information reaches the output file as soon as a packet is sent/received.
 
     $tsharkProcess = Start-Process -FilePath $tsharkPath -ArgumentList $tsharkArgs -RedirectStandardOutput $outputFile -PassThru -WindowStyle hidden
 
@@ -242,10 +248,13 @@ Function Invoke-TLSCapture {
 
     # Same thing for the TCP Resets. Assumes the reset comes from the IP that was contained in a DNS Response.
     $TCPResets | ForEach-Object {
-        $_.ServerName = $IPNameMap[$_.SourceIP]
+        if ($IPNameMap[$_.SourceIP]) {
+            $_.ServerName = $IPNameMap[$_.SourceIP]
+        }
+        elseif ($IPNameMap[$_.DestinationIP]) {
+            $_.ServerName = $IPNameMap[$_.DestinationIP]
+        }
     }
-
-    $IPNameMap
 
     $results = [PSCustomObject]@{
         DNSQueries   = $DNSQueries
