@@ -143,6 +143,9 @@ function Send-ToSplunk {
                     event      = $_
                 } | ConvertTo-Json -Compress -Depth 99
 
+                
+                $Headers
+                $Body
                 $Response = Invoke-RestMethod -Uri $SplunkServer -Method Post -Headers $Headers -Body $Body -ErrorAction Stop
                 break
             }
