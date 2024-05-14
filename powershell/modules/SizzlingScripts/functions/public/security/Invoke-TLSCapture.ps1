@@ -35,7 +35,7 @@
     }
 
     # Call Invoke-TLSCapture with the script block
-    $results = Invoke-TLSCapture -InterfaceName "Ethernet0" -ScriptBLock $captureActions -Ful
+    $results = Invoke-TLSCapture -InterfaceName "Ethernet0" -ScriptBLock $captureActions -FlushDNS
 
     $results.ClientHellos | Select-Object CipherSuites
     $results.ServerHellos | Where-Object {$_.SupportedVersions -match '1.3'}
