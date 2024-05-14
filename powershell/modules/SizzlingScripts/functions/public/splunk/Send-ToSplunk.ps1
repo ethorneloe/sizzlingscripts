@@ -116,6 +116,9 @@ function Send-ToSplunk {
         [pscustomobject]$Data = $Data | ConvertFrom-Csv
     }
 
+    write-output("Data for Splunk`n`n$Data")
+    
+
     $Data | ForEach-Object {
 
         $MaxRetries = 5
