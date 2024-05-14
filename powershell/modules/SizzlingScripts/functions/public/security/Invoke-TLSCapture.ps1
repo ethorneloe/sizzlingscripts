@@ -43,6 +43,17 @@
     $results.DNSQueries
     $results.TCPResets
 
+.EXAMPLE
+
+    #This will simply run the capture for 10 minutes.
+
+    $captureActions = {
+        # Sleep for 10 Minutes
+        Start-Sleep -Seconds 600
+    }
+
+    $results = Invoke-TLSCapture -InterfaceName "Ethernet0" -ScriptBLock $captureActions
+
 .NOTES
   This function depends on the following supporting functions in this module:
     1. Convert-CipherSuiteFromHex
