@@ -21,6 +21,7 @@ The function provides a straightforward mapping for common TLS content types use
 function Convert-TLSContentTypeFromDecimal {
 
     [CmdletBinding()]
+    [OutputType([string])]
     param (
         [Parameter(ValueFromPipeline = $true)]
         [string]$Code

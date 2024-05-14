@@ -21,6 +21,7 @@ The function supports a range of signature hash algorithms, including RSA, ECDSA
 function Convert-SigHashAlgoFromHex {
 
     [CmdletBinding()]
+    [OutputType([string])]
     param (
         [Parameter(ValueFromPipeline = $true)]
         [string]$HexCode

@@ -21,6 +21,7 @@ The function includes mappings for a wide array of cipher suites including RSA, 
 function Convert-CipherSuiteFromHex {
 
     [CmdletBinding()]
+    [OutputType([string])]
     param (
         [Parameter(ValueFromPipeline = $true)]
         [string]$HexCode
