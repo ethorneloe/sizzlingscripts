@@ -31,5 +31,5 @@ jobs:
           if($integrationTestFile) {
             Invoke-Pester $integrationTestFile -Output Detailed
           }
-          
+
         shell: pwsh
