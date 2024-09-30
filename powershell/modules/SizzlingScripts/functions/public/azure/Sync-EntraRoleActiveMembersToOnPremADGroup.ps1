@@ -43,6 +43,7 @@
     - Requires PowerShell 5.1 or later and the following modules:
         - Microsoft.Graph.Authentication
         - Microsoft.Graph.Identity.Governance
+        - Microsoft.Graph.Users
         - ActiveDirectory (Included with RSAT on Windows)
 #>
 
@@ -108,7 +109,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
     # Import required modules
     Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
     Import-Module Microsoft.Graph.Identity.Governance -ErrorAction Stop
-    Install-Module Microsoft.Graph.Users -ErrorAction Stop
+    Import-Module Microsoft.Graph.Users -ErrorAction Stop
     Import-Module ActiveDirectory -ErrorAction Stop
 
     ### **Function Definitions**
@@ -255,18 +256,13 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
             $OnPremGroupDN
         )
 
-	write-host "Param entra UPNs $entraUPNs"
-
         # Convert Entra ID UPNs to on-prem UPNs
         $entraActiveRoleMemberOnPremUPNs = New-Object System.Collections.ArrayList
         foreach ($upn in $entraUPNs) {
-		write-host "Trying $upn"
             try {
                 # Fetch user details from Microsoft Graph
                 $onPremUPN = (Get-MgUser -UserId $upn -Property "onPremisesUserPrincipalName" -ErrorAction Stop).onPremisesUserPrincipalName
-                write-host "OnPremUPN"
-		write-host $onPremUPN
-			$entraActiveRoleMemberOnPremUPNs.Add($onPremUPN) | Out-Null
+                $entraActiveRoleMemberOnPremUPNs.Add($onPremUPN) | Out-Null
             }
             catch {
                 Write-Warning "Failed to retrieve on-prem UPN: $upn. Error: $_"
@@ -276,14 +272,8 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
         # Determine members to add (in Entra active roles but not in On-Prem AD group)
         $membersToAdd = $entraActiveRoleMemberOnPremUPNs | Where-Object { $_ -notin $OnPremMembers }
 
-        Write-Host "Members to Add"
-        write-host $membersToAdd
-
         # Determine members to remove (in On-Prem AD group but not in Entra active roles)
         $membersToRemove = $OnPremMembers | Where-Object { $_ -notin $entraActiveRoleMemberOnPremUPNs }
-
-        Write-Host "Members to remove"
-        write-host $membersToRemove
 
         # Initialize arrays to track successful additions, removals, and failures
         $successfulAdds = @()
@@ -342,12 +332,6 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
         $entraActiveRoleMemberUPNs = $entraActiveRoleMembers.UserPrincipalName
         $onPremGroupMembers = Get-OnPremADGroupMembers -GroupDN $OnPremGroupDN
 
-        write-output "Entra Active UPNs"
-        $entraActiveRoleMemberUPNs
-
-       write-output "On Prem UPNs"
-        $onPremGroupMembers
-
         # Step 3: Update On-Premises AD Group
         $reconciliationResult = Update-OnPremADGroup -entraUPNs $entraActiveRoleMemberUPNs -OnPremMembers $onPremGroupMembers -OnPremGroupDN $OnPremGroupDN
 
@@ -373,7 +357,6 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
         if ($PSBoundParameters.ContainsKey('LogFilePath') -and -not [string]::IsNullOrWhiteSpace($LogFilePath)) {
             try {
                 $jsonOutput | Out-File -FilePath $LogFilePath -Encoding UTF8 -Force
-                Write-Output "Synchronization log saved to '$LogFilePath'."
             }
             catch {
                 Write-Warning "Failed to write JSON output to file: $_"
