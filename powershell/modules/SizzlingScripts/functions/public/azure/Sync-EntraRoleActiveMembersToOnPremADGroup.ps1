@@ -108,6 +108,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
     # Import required modules
     Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
     Import-Module Microsoft.Graph.Identity.Governance -ErrorAction Stop
+    Install-Module Microsoft.Graph.Users -ErrorAction Stop
     Import-Module ActiveDirectory -ErrorAction Stop
 
     ### **Function Definitions**
@@ -254,17 +255,30 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
             [string]$OnPremGroupDN
         )
 
+        # Convert Entra ID UPNs to on-prem UPNs
+        $entraActiveRoleMemberOnPremUPNs = New-Object System.Collections.ArrayList
+        foreach ($upn in $entraActiveRoleMemberUPNs) {
+            try {
+                # Fetch user details from Microsoft Graph
+                $onPremUPN = (Get-MgUser -UserId $upn -Property "onPremisesUserPrincipalName" -ErrorAction Stop).onPremisesUserPrincipalName
+                $entraActiveRoleMemberOnPremUPNs.Add($onPremUPN) | Out-Null
+            }
+            catch {
+                Write-Warning "Failed to retrieve on-prem UPN: $upn. Error: $_"
+            }
+        }
+
         # Determine members to add (in Entra active roles but not in On-Prem AD group)
-        $membersToAdd = $entraActiveRoleMemberUPNs | Where-Object { $_ -notin $OnPremMembers }
+        $membersToAdd = $entraActiveRoleMemberOnPremUPNs | Where-Object { $_ -notin $OnPremMembers }
 
         Write-Output "Members to Add"
-        $membersToAdd 
+        $membersToAdd
 
         # Determine members to remove (in On-Prem AD group but not in Entra active roles)
-        $membersToRemove = $OnPremMembers | Where-Object { $_ -notin $entraActiveRoleMemberUPNs }
+        $membersToRemove = $OnPremMembers | Where-Object { $_ -notin $entraActiveRoleMemberOnPremUPNs }
 
         Write-Output "Members to remove"
-        $membersToRemove 
+        $membersToRemove
 
         # Initialize arrays to track successful additions, removals, and failures
         $successfulAdds = @()
