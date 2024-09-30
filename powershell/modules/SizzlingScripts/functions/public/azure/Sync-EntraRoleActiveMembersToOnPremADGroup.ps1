@@ -41,7 +41,8 @@
     - The certificate must be installed in the local machine's certificate store and associated with the Entra ID application.
     - The account executing the script must have the necessary permissions to modify the on-premises AD group.
     - Requires PowerShell 5.1 or later and the following modules:
-        - Microsoft.Graph (Install-Module Microsoft.Graph -Scope CurrentUser)
+        - Microsoft.Graph.Authentication
+        - Microsoft.Graph.Identity.Governance
         - ActiveDirectory (Included with RSAT on Windows)
 #>
 
@@ -106,7 +107,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
 
     # Import required modules
     Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
-    Import-Module Microsoft.Graph.Roles -ErrorAction Stop
+    Import-Module Microsoft.Graph.Identity.Governance -ErrorAction Stop
     Import-Module ActiveDirectory -ErrorAction Stop
 
     ### **Function Definitions**
