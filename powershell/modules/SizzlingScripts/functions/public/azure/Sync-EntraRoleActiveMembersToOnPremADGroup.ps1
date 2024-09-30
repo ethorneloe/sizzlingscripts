@@ -373,6 +373,5 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
     finally {
         # Disconnect from Microsoft Graph
         Disconnect-MgGraph | Out-Null
-        Write-Output "Disconnected from Microsoft Graph."
     }
 }
