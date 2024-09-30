@@ -131,7 +131,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
             }
 
             # Connect to Microsoft Graph with required scopes for role management
-            Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint
+            Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint -NoWelcome
 
         }
         catch {
