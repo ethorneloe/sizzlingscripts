@@ -318,29 +318,3 @@ function Sync-EntraIDGroupToOnPremAD {
         # Optionally, you can log disconnection if needed
     }
 }
-
-
-
-CN=Domain Computers
-CN=Domain Controllers
-CN=Schema Admins
-CN=Enterprise Admins
-CN=Cert Publishers
-CN=Domain Admins
-CN=Domain Users
-CN=Domain Guests
-CN=Group Policy Creator Owners
-CN=RAS and IAS Servers
-CN=Allowed RODC Password Replication Group
-CN=Denied RODC Password Replication Group
-CN=Read-only Domain Controllers
-CN=Enterprise Read-only Domain Controllers
-CN=Cloneable Domain Controllers
-CN=Protected Users
-CN=Key Admins
-CN=Enterprise Key Admins
-CN=DnsAdmins
-CN=DnsUpdateProxy
-
-
-
