@@ -257,8 +257,14 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
         # Determine members to add (in Entra active roles but not in On-Prem AD group)
         $membersToAdd = $entraActiveRoleMemberUPNs | Where-Object { $_ -notin $OnPremMembers }
 
+        Write-Output "Members to Add"
+        $membersToAdd 
+
         # Determine members to remove (in On-Prem AD group but not in Entra active roles)
         $membersToRemove = $OnPremMembers | Where-Object { $_ -notin $entraActiveRoleMemberUPNs }
+
+        Write-Output "Members to remove"
+        $membersToRemove 
 
         # Initialize arrays to track successful additions, removals, and failures
         $successfulAdds = @()
@@ -316,6 +322,12 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
         $entraActiveRoleMembers = $entraRoleMembers['ActiveUsers']
         $entraActiveRoleMemberUPNs = $entraActiveRoleMembers.UserPrincipalName
         $onPremGroupMembers = Get-OnPremADGroupMembers -GroupDN $OnPremGroupDN
+
+        write-output "Entra Active UPNs"
+        $entraActiveRoleMemberUPNs
+
+        write-output "On Prem UPNs"
+        $onPremGroupMembers
 
         # Step 3: Update On-Premises AD Group
         $reconciliationResult = Update-OnPremADGroup -EntraActiveMembers $entraActiveRoleMemberUPNs -OnPremMembers $onPremGroupMembers -OnPremGroupDN $OnPremGroupDN
