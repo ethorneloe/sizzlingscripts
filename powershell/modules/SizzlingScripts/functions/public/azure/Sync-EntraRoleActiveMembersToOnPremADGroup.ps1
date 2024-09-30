@@ -129,8 +129,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
             }
 
             # Connect to Microsoft Graph with required scopes for role management
-            Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -Certificate $cert `
-                -Scopes "RoleManagement.Read.Directory" -ErrorAction Stop
+            Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint
 
         }
         catch {
@@ -239,8 +238,6 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
                 }
             }
 
-            Write-Output "Retrieved $($memberUPNs.Count) members from on-prem AD group '$GroupDN'."
-
             return $memberUPNs
         }
         catch {
@@ -275,14 +272,12 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
                 $adUser = Get-ADUser -Filter "UserPrincipalName -eq '$userUPN'" -ErrorAction Stop
                 Add-ADGroupMember -Identity $OnPremGroupDN -Members $adUser -ErrorAction Stop
                 $successfulAdds += $userUPN
-                Write-Output "Added $userUPN to on-prem AD group '$OnPremGroupDN'."
             }
             catch {
                 $failedAdds += @{
                     UserPrincipalName = $userUPN
                     ErrorMessage      = $_.Exception.Message
                 }
-                Write-Warning "Failed to add '$userUPN' to on-prem AD group '$OnPremGroupDN'. Error: $_"
             }
         }
 
@@ -292,14 +287,12 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
                 $adUser = Get-ADUser -Filter "UserPrincipalName -eq '$userUPN'" -ErrorAction Stop
                 Remove-ADGroupMember -Identity $OnPremGroupDN -Members $adUser -Confirm:$false -ErrorAction Stop
                 $successfulRemoves += $userUPN
-                Write-Output "Removed $userUPN from on-prem AD group '$OnPremGroupDN'."
             }
             catch {
                 $failedRemoves += @{
                     UserPrincipalName = $userUPN
                     ErrorMessage      = $_.Exception.Message
                 }
-                Write-Warning "Failed to remove '$userUPN' from on-prem AD group '$OnPremGroupDN'. Error: $_"
             }
         }
 
@@ -318,7 +311,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
         Connect-MicrosoftGraphCert -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $CertificateThumbprint
 
         # Step 2: Extract members from Entra role and On-Premises AD
-        $entraRoleMembers = Get-EntraRoleActiveMembers -RoleName $EntraRoleName
+        $entraRoleMembers = Get-EntraRoleMembers -RoleName $EntraRoleName
         $entraEligibleRoleMembers = $entraRoleMembers['EligibleUsers']
         $entraActiveRoleMembers = $entraRoleMembers['ActiveUsers']
         $entraActiveRoleMemberUPNs = $entraActiveRoleMembers.UserPrincipalName
