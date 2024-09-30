@@ -112,7 +112,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
     Import-Module Microsoft.Graph.Users -ErrorAction Stop
     Import-Module ActiveDirectory -ErrorAction Stop
 
-    ### **Function Definitions**
+    # Function Definitions
 
     # Function to connect to Microsoft Graph using certificate-based authentication
     function Connect-MicrosoftGraphCert {
@@ -319,7 +319,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
         }
     }
 
-    ### **Main Execution Flow**
+    # Main Execution Flow
 
     try {
         # Step 1: Connect to Microsoft Graph
