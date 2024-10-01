@@ -42,7 +42,7 @@
         -WhatIf
 
 .NOTES
-    - Ensure that the Entra ID application has the `RoleManagement.Read.Directory` and `Directory.Read.All` application permissions granted with admin consent.
+    - Ensure that the Entra ID application has the necessary access to read the entra role details and user information. For example `RoleManagement.Read.Directory` and `Directory.Read.All` application permissions granted with admin consent.
     - The certificate must be installed in the local machine's certificate store and associated with the Entra ID application.
     - The account executing the script must have the necessary permissions to modify the on-premises AD group.
     - Requires PowerShell 5.1 or later and the following modules:
