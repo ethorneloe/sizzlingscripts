@@ -24,6 +24,9 @@
 .PARAMETER OnPremGroupDN
     The Distinguished Name (DN) of the on-premises AD group to synchronize to.
 
+.PARAMETER MaxChangesAllowed
+    (Optional) The maximum number of membership changes allowed in a single run. Default is 10.
+
 .PARAMETER LogFilePath
     (Optional) The file path where the JSON output will be saved. If not specified, the JSON output will be written to the console.
 
@@ -34,7 +37,9 @@
         -CertificateThumbprint "your-cert-thumbprint" `
         -EntraRoleName "Your Custom Role Name" `
         -OnPremGroupDN "CN=YourOnPremGroup,OU=Groups,DC=yourdomain,DC=com" `
-        -LogFilePath "C:\Logs\RoleSyncLog.json"
+        -MaxChangesAllowed 5 `
+        -LogFilePath "C:\Logs\RoleSyncLog.json" `
+        -WhatIf
 
 .NOTES
     - Ensure that the Entra ID application has the `RoleManagement.Read.Directory` and `Directory.Read.All` application permissions granted with admin consent.
@@ -48,7 +53,7 @@
 #>
 
 function Sync-EntraRoleActiveMembersToOnPremADGroup {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess = $true)]
     param (
         [Parameter(Mandatory = $true)]
         [string]$TenantId,
@@ -66,12 +71,57 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
         [string]$OnPremGroupDN,
 
         [Parameter(Mandatory = $false)]
+        [ValidateNotNullOrEmpty()]
+        [int]$MaxChangesAllowed = 10,
+
+        [Parameter(Mandatory = $false)]
         [string]$LogFilePath
     )
 
+    # Initialize variables
+    $errors = New-Object System.Collections.ArrayList
+    $warnings = New-Object System.Collections.ArrayList
+    $jsonObject = [ordered]@{
+        Parameters = [ordered]@{
+            TenantId          = $TenantId
+            ClientId          = $ClientId
+            EntraRoleName     = $EntraRoleName
+            OnPremGroupDN     = $OnPremGroupDN
+            MaxChangesAllowed = $MaxChangesAllowed
+            LogFilePath       = $LogFilePath
+            Timestamp         = (Get-Date).ToString("o")
+        }
+        Errors     = $errors
+        Warnings   = $warnings
+    }
+
+    # Function to output the JSON result
+    function Output-JsonResult {
+        param (
+            [Hashtable]$Data
+        )
+
+        $jsonOutput = $Data | ConvertTo-Json -Depth 10
+
+        if ($PSBoundParameters.ContainsKey('LogFilePath') -and -not [string]::IsNullOrWhiteSpace($LogFilePath)) {
+            try {
+                $jsonOutput | Out-File -FilePath $LogFilePath -Encoding UTF8 -Force
+            }
+            catch {
+                [void]$warnings.Add("Failed to write JSON output to file: $_")
+                $jsonOutput
+            }
+        }
+        else {
+            # Output to console if no logfile is specified or if writing to logfile failed
+            $jsonOutput
+        }
+    }
+
     # Prevent management of built-in groups
     if ($OnPremGroupDN -like "*Builtin*") {
-        Write-Error "Built-in groups cannot be managed."
+        [void]$errors.Add("Built-in groups cannot be managed.")
+        Output-JsonResult -Data $jsonObject
         return
     }
 
@@ -100,17 +150,25 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
     )
 
     # Check if the group is in the forbidden list
-    $onPremGroupName = ($OnPremGroupDN -split ",")[0] -replace "CN=", ""
+    $onPremGroupName = ($OnPremGroupDN -split ",")[0] -replace "^CN=", ""
     if ($forbiddenGroups -contains $onPremGroupName) {
-        Write-Error "The specified group '$onPremGroupName' cannot be managed."
+        [void]$errors.Add("The specified group '$onPremGroupName' cannot be managed.")
+        Output-JsonResult -Data $jsonObject
         return
     }
 
     # Import required modules
-    Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
-    Import-Module Microsoft.Graph.Identity.Governance -ErrorAction Stop
-    Import-Module Microsoft.Graph.Users -ErrorAction Stop
-    Import-Module ActiveDirectory -ErrorAction Stop
+    try {
+        Import-Module Microsoft.Graph.Authentication -ErrorAction Stop
+        Import-Module Microsoft.Graph.Identity.Governance -ErrorAction Stop
+        Import-Module Microsoft.Graph.Users -ErrorAction Stop
+        Import-Module ActiveDirectory -ErrorAction Stop
+    }
+    catch {
+        [void]$errors.Add("Failed to import required modules: $_")
+        Output-JsonResult -Data $jsonObject
+        return
+    }
 
     # Function Definitions
 
@@ -127,20 +185,22 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
             $cert = Get-ChildItem -Path Cert:\LocalMachine\My | Where-Object { $_.Thumbprint -eq $CertificateThumbprint }
 
             if (-not $cert) {
-                throw "Certificate with thumbprint '$CertificateThumbprint' not found in LocalMachine\My store."
+                [void]$errors.Add("Certificate with thumbprint '$CertificateThumbprint' not found in LocalMachine\My store.")
+                return $false
             }
 
             # Connect to Microsoft Graph with required scopes for role management
-            Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -CertificateThumbprint $CertificateThumbprint -NoWelcome
+            Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -Certificate $cert -ErrorAction Stop
 
+            return $true
         }
         catch {
-            Write-Error "Failed to connect to Microsoft Graph: $_"
-            throw
+            [void]$errors.Add("Failed to connect to Microsoft Graph: $_")
+            return $false
         }
     }
 
-    # Function to retrieve active members of a specified Entra role
+    # Function to retrieve active and eligible members of a specified Entra role
     function Get-EntraRoleMembers {
         param (
             [string]$RoleName
@@ -152,32 +212,32 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
 
             # Check if the role was found
             if ($null -eq $roleDefinition) {
-                Write-Error "Role with display name '$RoleName' not found."
+                [void]$errors.Add("Role with display name '$RoleName' not found.")
                 return $null
             }
 
-            $RoleDefinitionId = $roleDefinition.Id
+            $roleDefinitionId = $roleDefinition.Id
 
             # Get eligible assignments for the specific role
-            $EligibleAssignments = Get-MgRoleManagementDirectoryRoleEligibilityScheduleInstance `
-                -Filter "roleDefinitionId eq '$RoleDefinitionId'" -ExpandProperty "*"
+            $eligibleAssignments = Get-MgRoleManagementDirectoryRoleEligibilityScheduleInstance `
+                -Filter "roleDefinitionId eq '$roleDefinitionId'" -ExpandProperty "*" -All
 
             # Filter assignments to only include users
-            $UserEligibleAssignments = $EligibleAssignments | Where-Object {
+            $userEligibleAssignments = $eligibleAssignments | Where-Object {
                 $_.Principal.AdditionalProperties.'@odata.type' -eq "#microsoft.graph.user"
             }
 
             # Get the active assignments for the role
-            $ActiveAssignments = Get-MgRoleManagementDirectoryRoleAssignmentScheduleInstance `
-                -Filter "roleDefinitionId eq '$RoleDefinitionId'" -ExpandProperty "*"
+            $activeAssignments = Get-MgRoleManagementDirectoryRoleAssignmentScheduleInstance `
+                -Filter "roleDefinitionId eq '$roleDefinitionId'" -ExpandProperty "*" -All
 
             # Filter assignments to only include users
-            $UserActiveAssignments = $ActiveAssignments | Where-Object {
+            $userActiveAssignments = $activeAssignments | Where-Object {
                 $_.Principal.AdditionalProperties.'@odata.type' -eq "#microsoft.graph.user"
             }
 
             # Process eligible user assignments
-            $EligibleEntraUserData = $UserEligibleAssignments | ForEach-Object {
+            $eligibleEntraUserData = $userEligibleAssignments | ForEach-Object {
                 [pscustomobject]@{
                     PrincipalId       = $_.Principal.Id
                     DisplayName       = $_.Principal.AdditionalProperties.displayName
@@ -192,7 +252,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
             }
 
             # Process active user assignments
-            $ActiveEntraUserData = $UserActiveAssignments | ForEach-Object {
+            $activeEntraUserData = $userActiveAssignments | ForEach-Object {
                 [pscustomobject]@{
                     PrincipalId       = $_.Principal.Id
                     DisplayName       = $_.Principal.AdditionalProperties.displayName
@@ -209,19 +269,18 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
 
             # Return both lists as a single object with two properties
             return @{
-                EligibleUsers = $EligibleEntraUserData
-                ActiveUsers   = $ActiveEntraUserData
+                EligibleUsers = $eligibleEntraUserData
+                ActiveUsers   = $activeEntraUserData
             }
         }
         catch {
-            Write-Error "An error occurred: $_"
+            [void]$errors.Add("An error occurred in Get-EntraRoleMembers: $_")
             return $null
         }
     }
 
-
     # Function to retrieve members from an on-premises AD group
-    function Get-OnPremADGroupMembers {
+    function Get-OnPremAdGroupMembers {
         param (
             [string]$GroupDN
         )
@@ -243,70 +302,97 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
             return $memberUPNs
         }
         catch {
-            Write-Error "Error fetching on-premises AD group members: $_"
-            throw
+            [void]$errors.Add("Error fetching on-premises AD group members: $_")
+            return $null
         }
     }
 
     # Function to Update on-premises AD group members based on Entra role active members
-    function Update-OnPremADGroup {
+    function Update-OnPremAdGroup {
         param (
-            $entraUPNs,
-            $OnPremMembers,
-            $OnPremGroupDN
+            [string[]]$entraUPNs,
+            [string[]]$onPremMembers,
+            [string]$onPremGroupDN
         )
 
         # Convert Entra ID UPNs to on-prem UPNs
-        $entraActiveRoleMemberOnPremUPNs = New-Object System.Collections.ArrayList
+        $entraActiveOnPremUPNs = New-Object System.Collections.ArrayList
         foreach ($upn in $entraUPNs) {
             try {
                 # Fetch user details from Microsoft Graph
-                $onPremUPN = (Get-MgUser -UserId $upn -Property "onPremisesUserPrincipalName" -ErrorAction Stop).onPremisesUserPrincipalName
-                $entraActiveRoleMemberOnPremUPNs.Add($onPremUPN) | Out-Null
+                $onPremUPN = (Get-MgUser -UserId $upn -Property "onPremisesUserPrincipalName").onPremisesUserPrincipalName
+
+                if (-not [string]::IsNullOrWhiteSpace($onPremUPN)) {
+                    [void]$entraActiveOnPremUPNs.Add($onPremUPN)
+                }
+                else {
+                    [void]$warnings.Add("On-Prem UPN is empty for cloud UPN: $upn")
+                }
             }
             catch {
-                Write-Warning "Failed to retrieve on-prem UPN: $upn. Error: $_"
+                [void]$warnings.Add("Failed to retrieve on-prem UPN for '$upn'. Error: $_")
             }
         }
 
         # Determine members to add (in Entra active roles but not in On-Prem AD group)
-        $membersToAdd = $entraActiveRoleMemberOnPremUPNs | Where-Object { $_ -notin $OnPremMembers }
+        $membersToAdd = $entraActiveOnPremUPNs | Where-Object { $_ -notin $onPremMembers }
 
         # Determine members to remove (in On-Prem AD group but not in Entra active roles)
-        $membersToRemove = $OnPremMembers | Where-Object { $_ -notin $entraActiveRoleMemberOnPremUPNs }
+        $membersToRemove = $onPremMembers | Where-Object { $_ -notin $entraActiveOnPremUPNs }
+
+        # Initialize change counter
+        $changeCount = 0
 
         # Initialize arrays to track successful additions, removals, and failures
-        $successfulAdds = @()
-        $successfulRemoves = @()
-        $failedAdds = @()
-        $failedRemoves = @()
+        $successfulAdds = New-Object System.Collections.ArrayList
+        $successfulRemoves = New-Object System.Collections.ArrayList
+        $failedAdds = New-Object System.Collections.ArrayList
+        $failedRemoves = New-Object System.Collections.ArrayList
 
         # Add new members
         foreach ($userUPN in $membersToAdd) {
-            try {
-                $adUser = Get-ADUser -Filter "UserPrincipalName -eq '$userUPN'" -ErrorAction Stop
-                Add-ADGroupMember -Identity $OnPremGroupDN -Members $adUser -ErrorAction Stop
-                $successfulAdds += $userUPN
+            if ($changeCount -ge $MaxChangesAllowed) {
+                [void]$warnings.Add("Maximum changes reached ($MaxChangesAllowed). Stopping further additions.")
+                break
             }
-            catch {
-                $failedAdds += @{
-                    UserPrincipalName = $userUPN
-                    ErrorMessage      = $_.Exception.Message
+            if ($PSCmdlet.ShouldProcess("Add $userUPN to group $onPremGroupDN")) {
+                try {
+                    $adUser = Get-ADUser -Filter "UserPrincipalName -eq '$userUPN'" -ErrorAction Stop
+                    Add-ADGroupMember -Identity $onPremGroupDN -Members $adUser -ErrorAction Stop
+                    [void]$successfulAdds.Add($userUPN)
+                    $changeCount++
+                }
+                catch {
+                    $failedAdd = @{
+                        UserPrincipalName = $userUPN
+                        ErrorMessage      = $_.Exception.Message
+                    }
+                    [void]$failedAdds.Add($failedAdd)
+                    [void]$warnings.Add("Failed to add '$userUPN' to on-prem AD group '$onPremGroupDN'. Error: $_")
                 }
             }
         }
 
         # Remove old members
         foreach ($userUPN in $membersToRemove) {
-            try {
-                $adUser = Get-ADUser -Filter "UserPrincipalName -eq '$userUPN'" -ErrorAction Stop
-                Remove-ADGroupMember -Identity $OnPremGroupDN -Members $adUser -Confirm:$false -ErrorAction Stop
-                $successfulRemoves += $userUPN
+            if ($changeCount -ge $MaxChangesAllowed) {
+                [void]$warnings.Add("Maximum changes reached ($MaxChangesAllowed). Stopping further removals.")
+                break
             }
-            catch {
-                $failedRemoves += @{
-                    UserPrincipalName = $userUPN
-                    ErrorMessage      = $_.Exception.Message
+            if ($PSCmdlet.ShouldProcess("Remove $userUPN from group $onPremGroupDN")) {
+                try {
+                    $adUser = Get-ADUser -Filter "UserPrincipalName -eq '$userUPN'" -ErrorAction Stop
+                    Remove-ADGroupMember -Identity $onPremGroupDN -Members $adUser -Confirm:$false -ErrorAction Stop
+                    [void]$successfulRemoves.Add($userUPN)
+                    $changeCount++
+                }
+                catch {
+                    $failedRemove = @{
+                        UserPrincipalName = $userUPN
+                        ErrorMessage      = $_.Exception.Message
+                    }
+                    [void]$failedRemoves.Add($failedRemove)
+                    [void]$warnings.Add("Failed to remove '$userUPN' from on-prem AD group '$onPremGroupDN'. Error: $_")
                 }
             }
         }
@@ -320,58 +406,54 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
     }
 
     # Main Execution Flow
-
     try {
         # Step 1: Connect to Microsoft Graph
-        Connect-MicrosoftGraphCert -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $CertificateThumbprint
+        $graphConnected = Connect-MicrosoftGraphCert -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $CertificateThumbprint
+
+        if (-not $graphConnected) {
+            Output-JsonResult -Data $jsonObject
+            return
+        }
 
         # Step 2: Extract members from Entra role and On-Premises AD
         $entraRoleMembers = Get-EntraRoleMembers -RoleName $EntraRoleName
-        $entraEligibleRoleMembers = $entraRoleMembers['EligibleUsers']
-        $entraActiveRoleMembers = $entraRoleMembers['ActiveUsers']
-        $entraActiveRoleMemberUPNs = $entraActiveRoleMembers.UserPrincipalName
-        $onPremGroupMembers = Get-OnPremADGroupMembers -GroupDN $OnPremGroupDN
+        if ($null -eq $entraRoleMembers) {
+            Output-JsonResult -Data $jsonObject
+            return
+        }
+
+        $entraEligibleMembers = $entraRoleMembers['EligibleUsers']
+        $entraActiveMembers = $entraRoleMembers['ActiveUsers']
+        $entraActiveUPNs = $entraActiveMembers.UserPrincipalName
+        $onPremGroupMembersBeforeSync = Get-OnPremAdGroupMembers -GroupDN $OnPremGroupDN
+
+        # Update JSON object with retrieved data
+        $jsonObject['EntraActiveMembers'] = $entraActiveMembers
+        $jsonObject['EntraEligibleMembers'] = $entraEligibleMembers
+        $jsonObject['OnPremGroupMembersBeforeSync'] = $onPremGroupMembersBeforeSync
 
         # Step 3: Update On-Premises AD Group
-        $reconciliationResult = Update-OnPremADGroup -entraUPNs $entraActiveRoleMemberUPNs -OnPremMembers $onPremGroupMembers -OnPremGroupDN $OnPremGroupDN
+        $reconciliationResult = Update-OnPremAdGroup -entraUPNs $entraActiveUPNs -onPremMembers $onPremGroupMembersBeforeSync -onPremGroupDN $OnPremGroupDN
 
-        # Step 4: Prepare JSON Tracking Object
-        $timestamp = (Get-Date).ToString("o")  # ISO 8601 format
+        # Step 4: Get on-prem group members after synchronization
+        $onPremGroupMembersAfterSync = Get-OnPremAdGroupMembers -GroupDN $OnPremGroupDN
 
-        $jsonObject = @{
-            OnPremGroupDN                 = $OnPremGroupDN
-            EntraRoleName                 = $EntraRoleName
-            EntraActiveRoleMembers        = $entraActiveRoleMembers
-            EntraEligibleRoleMembers      = $entraEligibleRoleMembers
-            OnPremGroupMembersBeforeSync  = $onPremGroupMembers
-            MembersAddedToOnPremGroup     = $reconciliationResult.AddedMembers
-            MembersRemovedFromOnPremGroup = $reconciliationResult.RemovedMembers
-            MembersFailedToAdd            = $reconciliationResult.FailedAdds
-            MembersFailedToRemove         = $reconciliationResult.FailedRemoves
-            Timestamp                     = $timestamp
-        }
-
-        $jsonOutput = $jsonObject | ConvertTo-Json -Depth 10
-
-        # Step 5: Output or Log the JSON Object
-        if ($PSBoundParameters.ContainsKey('LogFilePath') -and -not [string]::IsNullOrWhiteSpace($LogFilePath)) {
-            try {
-                $jsonOutput | Out-File -FilePath $LogFilePath -Encoding UTF8 -Force
-            }
-            catch {
-                Write-Warning "Failed to write JSON output to file: $_"
-                Write-Output $jsonOutput
-            }
-        }
-        else {
-            Write-Output $jsonOutput
-        }
+        # Step 5: Update JSON object with reconciliation results
+        $jsonObject['MembersAddedToOnPremGroup'] = $reconciliationResult.AddedMembers
+        $jsonObject['MembersRemovedFromOnPremGroup'] = $reconciliationResult.RemovedMembers
+        $jsonObject['MembersFailedToAdd'] = $reconciliationResult.FailedAdds
+        $jsonObject['MembersFailedToRemove'] = $reconciliationResult.FailedRemoves
+        $jsonObject['OnPremGroupMembersAfterSync'] = $onPremGroupMembersAfterSync
+        $jsonObject['TotalChanges'] = $reconciliationResult.AddedMembers.Count + $reconciliationResult.RemovedMembers.Count
     }
     catch {
-        Write-Error "An error occurred during synchronization: $_"
+        [void]$errors.Add("An error occurred during synchronization: $_")
     }
     finally {
         # Disconnect from Microsoft Graph
         Disconnect-MgGraph | Out-Null
+
+        # Output the JSON result
+        Output-JsonResult -Data $jsonObject
     }
 }
