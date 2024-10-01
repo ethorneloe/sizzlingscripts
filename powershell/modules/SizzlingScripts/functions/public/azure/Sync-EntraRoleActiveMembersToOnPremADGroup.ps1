@@ -81,18 +81,29 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
     # Initialize variables
     $errors = New-Object System.Collections.ArrayList
     $warnings = New-Object System.Collections.ArrayList
-    $jsonObject = [ordered]@{
-        Parameters = [ordered]@{
-            TenantId          = $TenantId
-            ClientId          = $ClientId
-            EntraRoleName     = $EntraRoleName
-            OnPremGroupDN     = $OnPremGroupDN
-            MaxChangesAllowed = $MaxChangesAllowed
-            LogFilePath       = $LogFilePath
-            Timestamp         = (Get-Date).ToString("o")
+
+    # Initialize the output object with all possible keys in alphabetical order
+    $outputObject = [ordered]@{
+        EntraActiveMembers            = @()
+        EntraEligibleMembers          = @()
+        Errors                        = $errors
+        MembersAddedToOnPremGroup     = @()
+        MembersFailedToAdd            = @()
+        MembersFailedToRemove         = @()
+        MembersRemovedFromOnPremGroup = @()
+        OnPremGroupMembersAfterSync   = @()
+        OnPremGroupMembersBeforeSync  = @()
+        Parameters                    = [ordered]@{
+            ClientId                  = $ClientId
+            EntraRoleName             = $EntraRoleName
+            LogFilePath               = $LogFilePath
+            MaxChangesAllowed         = $MaxChangesAllowed
+            OnPremGroupDN             = $OnPremGroupDN
+            TenantId                  = $TenantId
+            Timestamp                 = (Get-Date).ToString("o")
         }
-        Errors     = $errors
-        Warnings   = $warnings
+        TotalChanges                  = 0
+        Warnings                      = $warnings
     }
 
     # Function to output the JSON result
@@ -101,7 +112,10 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
             [Hashtable]$Data
         )
 
-        $jsonOutput = $Data | ConvertTo-Json -Depth 10
+        # Convert the ordered hashtable to a PSCustomObject
+        $customObject = [PSCustomObject]$Data
+
+        $jsonOutput = $customObject | ConvertTo-Json -Depth 10
 
         if ($PSBoundParameters.ContainsKey('LogFilePath') -and -not [string]::IsNullOrWhiteSpace($LogFilePath)) {
             try {
@@ -121,7 +135,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
     # Prevent management of built-in groups
     if ($OnPremGroupDN -like "*Builtin*") {
         [void]$errors.Add("Built-in groups cannot be managed.")
-        Output-JsonResult -Data $jsonObject
+        Output-JsonResult -Data $outputObject
         return
     }
 
@@ -153,7 +167,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
     $onPremGroupName = ($OnPremGroupDN -split ",")[0] -replace "^CN=", ""
     if ($forbiddenGroups -contains $onPremGroupName) {
         [void]$errors.Add("The specified group '$onPremGroupName' cannot be managed.")
-        Output-JsonResult -Data $jsonObject
+        Output-JsonResult -Data $outputObject
         return
     }
 
@@ -166,7 +180,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
     }
     catch {
         [void]$errors.Add("Failed to import required modules: $_")
-        Output-JsonResult -Data $jsonObject
+        Output-JsonResult -Data $outputObject
         return
     }
 
@@ -190,7 +204,8 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
             }
 
             # Connect to Microsoft Graph with required scopes for role management
-            Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -Certificate $cert -ErrorAction Stop
+            Connect-MgGraph -ClientId $ClientId -TenantId $TenantId -Certificate $cert `
+                -Scopes "RoleManagement.Read.Directory", "Directory.Read.All" -ErrorAction Stop
 
             return $true
         }
@@ -411,14 +426,14 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
         $graphConnected = Connect-MicrosoftGraphCert -TenantId $TenantId -ClientId $ClientId -CertificateThumbprint $CertificateThumbprint
 
         if (-not $graphConnected) {
-            Output-JsonResult -Data $jsonObject
+            Output-JsonResult -Data $outputObject
             return
         }
 
         # Step 2: Extract members from Entra role and On-Premises AD
         $entraRoleMembers = Get-EntraRoleMembers -RoleName $EntraRoleName
         if ($null -eq $entraRoleMembers) {
-            Output-JsonResult -Data $jsonObject
+            Output-JsonResult -Data $outputObject
             return
         }
 
@@ -427,10 +442,10 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
         $entraActiveUPNs = $entraActiveMembers.UserPrincipalName
         $onPremGroupMembersBeforeSync = Get-OnPremAdGroupMembers -GroupDN $OnPremGroupDN
 
-        # Update JSON object with retrieved data
-        $jsonObject['EntraActiveMembers'] = $entraActiveMembers
-        $jsonObject['EntraEligibleMembers'] = $entraEligibleMembers
-        $jsonObject['OnPremGroupMembersBeforeSync'] = $onPremGroupMembersBeforeSync
+        # Update output object with retrieved data
+        $outputObject['EntraActiveMembers'] = $entraActiveMembers
+        $outputObject['EntraEligibleMembers'] = $entraEligibleMembers
+        $outputObject['OnPremGroupMembersBeforeSync'] = $onPremGroupMembersBeforeSync
 
         # Step 3: Update On-Premises AD Group
         $reconciliationResult = Update-OnPremAdGroup -entraUPNs $entraActiveUPNs -onPremMembers $onPremGroupMembersBeforeSync -onPremGroupDN $OnPremGroupDN
@@ -438,13 +453,13 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
         # Step 4: Get on-prem group members after synchronization
         $onPremGroupMembersAfterSync = Get-OnPremAdGroupMembers -GroupDN $OnPremGroupDN
 
-        # Step 5: Update JSON object with reconciliation results
-        $jsonObject['MembersAddedToOnPremGroup'] = $reconciliationResult.AddedMembers
-        $jsonObject['MembersRemovedFromOnPremGroup'] = $reconciliationResult.RemovedMembers
-        $jsonObject['MembersFailedToAdd'] = $reconciliationResult.FailedAdds
-        $jsonObject['MembersFailedToRemove'] = $reconciliationResult.FailedRemoves
-        $jsonObject['OnPremGroupMembersAfterSync'] = $onPremGroupMembersAfterSync
-        $jsonObject['TotalChanges'] = $reconciliationResult.AddedMembers.Count + $reconciliationResult.RemovedMembers.Count
+        # Step 5: Update output object with reconciliation results
+        $outputObject['MembersAddedToOnPremGroup'] = $reconciliationResult.AddedMembers
+        $outputObject['MembersRemovedFromOnPremGroup'] = $reconciliationResult.RemovedMembers
+        $outputObject['MembersFailedToAdd'] = $reconciliationResult.FailedAdds
+        $outputObject['MembersFailedToRemove'] = $reconciliationResult.FailedRemoves
+        $outputObject['OnPremGroupMembersAfterSync'] = $onPremGroupMembersAfterSync
+        $outputObject['TotalChanges'] = $reconciliationResult.AddedMembers.Count + $reconciliationResult.RemovedMembers.Count
     }
     catch {
         [void]$errors.Add("An error occurred during synchronization: $_")
@@ -454,6 +469,6 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
         Disconnect-MgGraph | Out-Null
 
         # Output the JSON result
-        Output-JsonResult -Data $jsonObject
+        Output-JsonResult -Data $outputObject
     }
 }
