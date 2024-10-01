@@ -83,7 +83,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
     $warnings = New-Object System.Collections.ArrayList
 
     # Initialize the output object with all possible keys in alphabetical order
-    $outputObject = [ordered]@{
+    $outputObject = [PSCustomObject][ordered]@{
         EntraActiveMembers            = @()
         EntraEligibleMembers          = @()
         Errors                        = $errors
@@ -93,7 +93,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
         MembersRemovedFromOnPremGroup = @()
         OnPremGroupMembersAfterSync   = @()
         OnPremGroupMembersBeforeSync  = @()
-        Parameters                    = [ordered]@{
+        Parameters                    = [PSCustomObject][ordered]@{
             ClientId                  = $ClientId
             EntraRoleName             = $EntraRoleName
             LogFilePath               = $LogFilePath
@@ -109,13 +109,10 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
     # Function to output the JSON result
     function Output-JsonResult {
         param (
-            [Hashtable]$Data
+            [PSCustomObject]$Data
         )
 
-        # Convert the ordered hashtable to a PSCustomObject
-        $customObject = [PSCustomObject]$Data
-
-        $jsonOutput = $customObject | ConvertTo-Json -Depth 10
+        $jsonOutput = $Data | ConvertTo-Json -Depth 10
 
         if ($PSBoundParameters.ContainsKey('LogFilePath') -and -not [string]::IsNullOrWhiteSpace($LogFilePath)) {
             try {
@@ -252,7 +249,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
 
             # Process eligible user assignments
             $eligibleEntraUserData = $userEligibleAssignments | ForEach-Object {
-                [pscustomobject]@{
+                [PSCustomObject][ordered]@{
                     PrincipalId       = $_.Principal.Id
                     DisplayName       = $_.Principal.AdditionalProperties.displayName
                     UserPrincipalName = $_.Principal.AdditionalProperties.userPrincipalName
@@ -267,7 +264,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
 
             # Process active user assignments
             $activeEntraUserData = $userActiveAssignments | ForEach-Object {
-                [pscustomobject]@{
+                [PSCustomObject][ordered]@{
                     PrincipalId       = $_.Principal.Id
                     DisplayName       = $_.Principal.AdditionalProperties.displayName
                     UserPrincipalName = $_.Principal.AdditionalProperties.userPrincipalName
@@ -281,8 +278,8 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
                 }
             }
 
-            # Return both lists as a single object with two properties
-            return @{
+            # Return both lists as a [PSCustomObject]
+            return [PSCustomObject][ordered]@{
                 EligibleUsers = $eligibleEntraUserData
                 ActiveUsers   = $activeEntraUserData
             }
@@ -377,7 +374,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
                     $changeCount++
                 }
                 catch {
-                    $failedAdd = @{
+                    $failedAdd = [PSCustomObject][ordered]@{
                         UserPrincipalName = $userUPN
                         ErrorMessage      = $_.Exception.Message
                     }
@@ -401,7 +398,7 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
                     $changeCount++
                 }
                 catch {
-                    $failedRemove = @{
+                    $failedRemove = [PSCustomObject][ordered]@{
                         UserPrincipalName = $userUPN
                         ErrorMessage      = $_.Exception.Message
                     }
@@ -411,7 +408,8 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
             }
         }
 
-        return @{
+        # Return the results as a [PSCustomObject]
+        return [PSCustomObject][ordered]@{
             AddedMembers   = $successfulAdds
             RemovedMembers = $successfulRemoves
             FailedAdds     = $failedAdds
@@ -436,15 +434,15 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
             return
         }
 
-        $entraEligibleMembers = $entraRoleMembers['EligibleUsers']
-        $entraActiveMembers = $entraRoleMembers['ActiveUsers']
+        $entraEligibleMembers = $entraRoleMembers.EligibleUsers
+        $entraActiveMembers = $entraRoleMembers.ActiveUsers
         $entraActiveUPNs = $entraActiveMembers.UserPrincipalName
         $onPremGroupMembersBeforeSync = Get-OnPremAdGroupMembers -GroupDN $OnPremGroupDN
 
         # Update output object with retrieved data
-        $outputObject['EntraActiveMembers'] = $entraActiveMembers
-        $outputObject['EntraEligibleMembers'] = $entraEligibleMembers
-        $outputObject['OnPremGroupMembersBeforeSync'] = $onPremGroupMembersBeforeSync
+        $outputObject.EntraActiveMembers = $entraActiveMembers
+        $outputObject.EntraEligibleMembers = $entraEligibleMembers
+        $outputObject.OnPremGroupMembersBeforeSync = $onPremGroupMembersBeforeSync
 
         # Step 3: Update On-Premises AD Group
         $reconciliationResult = Update-OnPremAdGroup -entraUPNs $entraActiveUPNs -onPremMembers $onPremGroupMembersBeforeSync -onPremGroupDN $OnPremGroupDN
@@ -453,12 +451,12 @@ function Sync-EntraRoleActiveMembersToOnPremADGroup {
         $onPremGroupMembersAfterSync = Get-OnPremAdGroupMembers -GroupDN $OnPremGroupDN
 
         # Step 5: Update output object with reconciliation results
-        $outputObject['MembersAddedToOnPremGroup'] = $reconciliationResult.AddedMembers
-        $outputObject['MembersRemovedFromOnPremGroup'] = $reconciliationResult.RemovedMembers
-        $outputObject['MembersFailedToAdd'] = $reconciliationResult.FailedAdds
-        $outputObject['MembersFailedToRemove'] = $reconciliationResult.FailedRemoves
-        $outputObject['OnPremGroupMembersAfterSync'] = $onPremGroupMembersAfterSync
-        $outputObject['TotalChanges'] = $reconciliationResult.AddedMembers.Count + $reconciliationResult.RemovedMembers.Count
+        $outputObject.MembersAddedToOnPremGroup = $reconciliationResult.AddedMembers
+        $outputObject.MembersRemovedFromOnPremGroup = $reconciliationResult.RemovedMembers
+        $outputObject.MembersFailedToAdd = $reconciliationResult.FailedAdds
+        $outputObject.MembersFailedToRemove = $reconciliationResult.FailedRemoves
+        $outputObject.OnPremGroupMembersAfterSync = $onPremGroupMembersAfterSync
+        $outputObject.TotalChanges = $reconciliationResult.AddedMembers.Count + $reconciliationResult.RemovedMembers.Count
     }
     catch {
         [void]$errors.Add("An error occurred during synchronization: $_")
